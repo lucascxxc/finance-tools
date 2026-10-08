@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自动化财务分析报告生成器 · 财务BP经营分析助手</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --navy:#1a365d; --navy2:#2a4a7f; --bg:#f7fafc; --card:#ffffff;
+    --blue:#2b6cb0; --orange:#ed8936; --green:#48bb78; --gray:#a0aec0; --purple:#805ad5;
+    --ok-bg:#c6f6d5; --ok-fg:#276749; --warn-bg:#fefcbf; --warn-fg:#975a16;
+    --bad-bg:#fed7d7; --bad-fg:#c53030; --line:#e2e8f0; --text:#2d3748; --muted:#718096;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:"Microsoft YaHei","PingFang SC","Segoe UI",sans-serif; background:var(--bg); color:var(--text); line-height:1.6;}
+  /* ===== 导航 ===== */
+  .topnav{background:var(--navy); color:#fff; padding:14px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; position:sticky; top:0; z-index:100; box-shadow:0 2px 8px rgba(0,0,0,.18);}
+  .topnav .brand{font-size:18px; font-weight:700; letter-spacing:.5px;}
+  .topnav .brand small{display:block; font-size:12px; font-weight:400; color:#bee3f8;}
+  .nav-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .btn{border:none; border-radius:6px; padding:8px 16px; font-size:13px; cursor:pointer; font-family:inherit; transition:.15s;}
+  .btn:hover{transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.15);}
+  .btn-light{background:#fff; color:var(--navy); font-weight:600;}
+  .btn-ghost{background:rgba(255,255,255,.14); color:#fff; border:1px solid rgba(255,255,255,.35);}
+  .btn-primary{background:var(--blue); color:#fff; font-weight:600; padding:10px 22px; font-size:14px;}
+  .btn-warn{background:var(--orange); color:#fff; font-weight:600;}
+  .container{max-width:1180px; margin:0 auto; padding:24px 20px 60px;}
+  .hero{background:linear-gradient(135deg,#1a365d 0%,#2b6cb0 100%); color:#fff; border-radius:12px; padding:26px 30px; margin-bottom:24px;}
+  .hero h1{font-size:22px; margin-bottom:6px;}
+  .hero p{font-size:13.5px; color:#d6e6f7; max-width:820px;}
+  .hero .steps{display:flex; gap:18px; margin-top:14px; flex-wrap:wrap;}
+  .hero .step{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); border-radius:8px; padding:8px 14px; font-size:12.5px;}
+  .hero .step b{color:#faf089;}
+  /* ===== 输入区 ===== */
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; margin-bottom:26px; box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .panel h2{font-size:17px; color:var(--navy); margin-bottom:4px; display:flex; align-items:center; gap:8px;}
+  .panel h2 .num{background:var(--navy); color:#fff; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:13px;}
+  .panel .sub{font-size:12.5px; color:var(--muted); margin-bottom:14px;}
+  .config-row{display:flex; gap:18px; flex-wrap:wrap; margin-bottom:16px; padding:14px; background:#f0f5fa; border-radius:8px;}
+  .config-group{display:flex; flex-direction:column; gap:6px;}
+  .config-group label{font-size:12px; font-weight:600; color:var(--navy);}
+  .config-group .fields{display:flex; gap:6px; flex-wrap:wrap;}
+  .config-group input{width:86px; padding:5px 8px; border:1px solid var(--line); border-radius:5px; font-size:12.5px; font-family:inherit;}
+  .field-cap{display:flex; flex-direction:column; align-items:flex-start; gap:3px;}
+  .field-cap em{font-style:normal; font-size:11px; color:var(--muted); white-space:nowrap;}
+  .tabs{display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap;}
+  .tab-btn{background:#edf2f7; border:1px solid var(--line); border-radius:7px 7px 0 0; padding:8px 18px; font-size:13.5px; cursor:pointer; font-family:inherit; color:var(--muted);}
+  .tab-btn.active{background:var(--navy); color:#fff; border-color:var(--navy); font-weight:600;}
+  .tab-pane{display:none;}
+  .tab-pane.active{display:block;}
+  .tab-pane textarea{width:100%; height:170px; border:1px solid var(--line); border-radius:8px; padding:12px; font-family:Consolas,"Courier New",monospace; font-size:12.5px; resize:vertical; line-height:1.7;}
+  .tab-pane textarea:focus{outline:2px solid var(--blue); border-color:var(--blue);}
+  .upload-row{display:flex; align-items:center; gap:12px; margin-top:10px; flex-wrap:wrap;}
+  .upload-row input[type=file]{font-size:12.5px;}
+  .hint{font-size:12px; color:var(--muted);}
+  .action-row{display:flex; gap:12px; margin-top:18px; flex-wrap:wrap;}
+  .parse-status{margin-top:12px; font-size:13px; display:none; padding:10px 14px; border-radius:8px;}
+  .parse-status.ok{display:block; background:var(--ok-bg); color:var(--ok-fg);}
+  .parse-status.warn{display:block; background:var(--warn-bg); color:var(--warn-fg);}
+  /* ===== 报告通用 ===== */
+  .report-section{margin-bottom:34px;}
+  .sec-title{display:flex; align-items:baseline; gap:12px; border-bottom:3px solid var(--navy); padding-bottom:10px; margin-bottom:18px;}
+  .sec-title h2{font-size:20px; color:var(--navy);}
+  .sec-title span{font-size:12.5px; color:var(--muted);}
+  /* ===== 驾驶舱卡片 ===== */
+  .dash-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px;}
+  .kpi-card{border-radius:12px; padding:18px 20px; border:1px solid var(--line); position:relative; transition:.2s;}
+  .kpi-card:hover{transform:translateY(-2px); box-shadow:0 6px 16px rgba(0,0,0,.08);}
+  .kpi-card.ok{background:var(--ok-bg); border-color:#9ae6b4;}
+  .kpi-card.warn{background:var(--warn-bg); border-color:#f6e05e;}
+  .kpi-card.bad{background:var(--bad-bg); border-color:#fc8181;}
+  .kpi-card.na{background:#edf2f7;}
+  .kpi-name{font-size:13px; font-weight:600; color:#4a5568; display:flex; align-items:center; gap:6px;}
+  .kpi-value{font-size:30px; font-weight:800; margin:6px 0 2px; color:var(--navy); font-family:"Segoe UI",sans-serif;}
+  .kpi-status{font-size:13px; font-weight:700;}
+  .kpi-card.ok .kpi-status{color:var(--ok-fg);} .kpi-card.warn .kpi-status{color:var(--warn-fg);} .kpi-card.bad .kpi-status{color:var(--bad-fg);}
+  .kpi-dev{font-size:12px; color:#4a5568; margin-top:4px;}
+  /* 公式悬浮 */
+  .tip{cursor:help; display:inline-flex; width:16px; height:16px; border-radius:50%; background:var(--navy); color:#fff; font-size:10px; align-items:center; justify-content:center; position:relative; flex:none;}
+  .tip::after{content:attr(data-tip); position:absolute; bottom:130%; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff; font-size:11.5px; padding:8px 12px; border-radius:7px; width:max-content; max-width:300px; white-space:normal; line-height:1.5; opacity:0; pointer-events:none; transition:.15s; z-index:50; box-shadow:0 4px 12px rgba(0,0,0,.25); font-weight:400;}
+  .tip:hover::after{opacity:1;}
+  /* ===== 图表 ===== */
+  .chart-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+  @media (max-width:900px){.chart-grid{grid-template-columns:1fr;}}
+  .chart-box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px;}
+  .chart-box h3{font-size:14.5px; color:var(--navy); margin-bottom:4px;}
+  .chart-box .csub{font-size:12px; color:var(--muted); margin-bottom:10px;}
+  .chart-box canvas{max-height:300px;}
+  .wide{grid-column:1/-1;}
+  /* ===== 杜邦树 ===== */
+  .dupont{display:flex; flex-direction:column; align-items:center; gap:0; padding:10px 0;}
+  .dp-level{display:flex; gap:14px; justify-content:center; flex-wrap:wrap;}
+  .dp-box{border-radius:10px; padding:10px 18px; text-align:center; min-width:150px; border:1px solid var(--line); background:#fff;}
+  .dp-box .dp-label{font-size:12px; color:var(--muted);}
+  .dp-box .dp-val{font-size:19px; font-weight:800; color:var(--navy);}
+  .dp-box .dp-delta{font-size:11px; margin-top:2px;}
+  .dp-root{background:var(--navy); border-color:var(--navy);}
+  .dp-root .dp-label{color:#bee3f8;} .dp-root .dp-val{color:#fff;}
+  .dp-mid{background:#ebf4fc; border-color:#90cdf4;}
+  .dp-connector{width:2px; height:18px; background:var(--gray); margin:4px auto;}
+  .dp-note{margin-top:14px; font-size:12.5px; background:#f0f5fa; border-left:4px solid var(--blue); padding:10px 14px; border-radius:0 8px 8px 0; width:100%;}
+  .up{color:var(--bad-fg); font-weight:700;} .down{color:var(--ok-fg); font-weight:700;}
+  /* ===== 明细表 / 风险表 ===== */
+  table{width:100%; border-collapse:collapse; font-size:13px; background:#fff;}
+  th{background:var(--navy); color:#fff; padding:10px 12px; text-align:left; font-weight:600; white-space:nowrap;}
+  td{padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tr:hover td{background:#f0f5fa;}
+  .badge{display:inline-block; padding:2px 10px; border-radius:20px; font-size:11.5px; font-weight:700; white-space:nowrap;}
+  .badge.ok{background:var(--ok-bg); color:var(--ok-fg);} .badge.warn{background:var(--warn-bg); color:var(--warn-fg);} .badge.bad{background:var(--bad-bg); color:var(--bad-fg);}
+  .table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:10px;}
+  /* ===== 文字分析 ===== */
+  .analysis-block{background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px 24px; margin-bottom:14px;}
+  .analysis-block h3{font-size:15px; color:var(--navy); margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .analysis-block p{font-size:13.5px; margin-bottom:8px; text-align:justify;}
+  .analysis-block .conclusion{background:#f0f5fa; border-left:4px solid var(--navy); padding:12px 16px; border-radius:0 8px 8px 0; font-size:13.5px;}
+  .analysis-block ul{margin:6px 0 6px 22px; font-size:13.5px;}
+  .verdict{display:inline-block; padding:3px 14px; border-radius:20px; font-weight:800; font-size:14px; margin-left:8px;}
+  .export-panel{display:flex; gap:14px; flex-wrap:wrap; align-items:center; background:#fff; border:1px dashed var(--navy); border-radius:12px; padding:22px;}
+  .export-panel .desc{font-size:12.5px; color:var(--muted); width:100%;}
+  .footer{text-align:center; font-size:12px; color:var(--muted); margin-top:30px;}
+  .toast{position:fixed; bottom:26px; left:50%; transform:translateX(-50%); background:var(--navy); color:#fff; padding:11px 24px; border-radius:8px; font-size:13.5px; opacity:0; transition:.25s; z-index:999; pointer-events:none; box-shadow:0 6px 18px rgba(0,0,0,.25);}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+
+<nav class="topnav">
+  <div class="brand">📊 自动化财务分析报告生成器<small>财务BP经营分析助手 · 上传三表，10分钟产出可上会报告</small></div>
+  <div class="nav-actions">
+    <button class="btn btn-ghost" onclick="loadSample()">载入示例数据</button>
+    <button class="btn btn-light" onclick="exportWord()">⬇ 导出Word</button>
+    <button class="btn btn-light" onclick="copyReport()">📋 复制报告文字</button>
+    <button class="btn btn-light" onclick="copyPPT()">📑 复制PPT大纲</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>让财务分析回归「判断」本身</h1>
+    <p>依次粘贴或上传<b>资产负债表、利润表、现金流量表</b>（支持最多3期数据），系统自动计算10项核心指标、生成趋势图谱与杜邦分析、撰写四大风格文字解读，并输出风险预警清单。把重复计算与排版交给工具，把时间留给业务洞察。</p>
+    <div class="steps">
+      <div class="step"><b>①</b> 粘贴/上传三表数据</div>
+      <div class="step"><b>②</b> 点击「生成报告」</div>
+      <div class="step"><b>③</b> 核对指标 → 导出汇报</div>
+    </div>
+  </div>
+
+  <!-- ================= 数据输入 ================= -->
+  <div class="panel">
+    <h2><span class="num">1</span>数据录入 <span style="font-size:12px;font-weight:400;color:var(--muted)">每行一个科目：科目名 + 数值（可1~3期），Tab/逗号/空格分隔均可</span></h2>
+    <div class="sub">科目识别采用关键词模糊匹配（如「应收票据及应收账款」「应收账款」均可识别）；数据更新后报告自动重算，无需刷新页面。</div>
+
+    <div class="config-row">
+      <div class="config-group">
+        <label>期间名称（由远及近）</label>
+        <div class="fields">
+          <input id="pn0" value="2023年"><input id="pn1" value="2024年"><input id="pn2" value="2025年">
+        </div>
+      </div>
+      <div class="config-group">
+        <label>行业对标基准（可修改）</label>
+        <div class="fields">
+          <span class="field-cap"><input id="bmGross" type="number" value="30" title="行业毛利率均值（%）"><em>毛利率（%）</em></span>
+          <span class="field-cap"><input id="bmAR" type="number" value="60" title="行业应收账款周转天数均值（天）"><em>应收账款周转天数（天）</em></span>
+          <span class="field-cap"><input id="bmInv" type="number" value="90" title="行业存货周转天数均值（天）"><em>存货周转天数（天）</em></span>
+          <span class="field-cap"><input id="bmAP" type="number" value="60" title="行业应付账款周转天数均值（天）"><em>应付账款周转天数（天）</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="bs">资产负债表</button>
+      <button class="tab-btn" data-tab="is">利润表</button>
+      <button class="tab-btn" data-tab="cf">现金流量表</button>
+    </div>
+
+    <div class="tab-pane active" id="pane-bs">
+      <textarea id="txt-bs" placeholder="粘贴资产负债表数据，例如：&#10;货币资金,8500,9200,7800&#10;应收票据及应收账款,12000,15600,21400&#10;……（需包含：货币资金/应收/存货/固定资产/流动资产合计/流动负债合计/资产总计/应付/应付职工薪酬/应交税费/负债总计/实收资本/未分配利润/负债及所有者权益总计）"></textarea>
+      <div class="upload-row">
+        <input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="handleFile(event,'bs')">
+        <span class="hint">支持 CSV / Excel（.xlsx/.xls，自动读取第一个工作表）</span>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-is">
+      <textarea id="txt-is" placeholder="粘贴利润表数据，例如：&#10;营业收入,88000,96500,104800&#10;营业成本,59800,67600,77550&#10;……（需包含：营业收入/营业成本/销售/管理/研发/财务费用/资产减值损失/营业利润/营业外收支/利润总额/所得税费用/净利润）"></textarea>
+      <div class="upload-row">
+        <input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="handleFile(event,'is')">
+        <span class="hint">支持 CSV / Excel</span>
+      </div>
+    </div>
+    <div class="tab-pane" id="pane-cf">
+      <textarea id="txt-cf" placeholder="粘贴现金流量表数据，例如：&#10;经营活动产生的现金流量净额,10200,8600,4100&#10;……（需包含：销售商品收到现金/购买商品支付现金/支付职工现金/支付各项税费/经营、投资、筹资活动净现金流/现金净增加额）"></textarea>
+      <div class="upload-row">
+        <input type="file" accept=".csv,.txt,.xlsx,.xls" onchange="handleFile(event,'cf')">
+        <span class="hint">支持 CSV / Excel</span>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-primary" onclick="generate()">⚡ 生成财务分析报告</button>
+      <button class="btn btn-warn" onclick="loadSample()">载入示例数据并生成</button>
+    </div>
+    <div class="parse-status" id="parseStatus"></div>
+  </div>
+
+  <!-- ================= 报告区 ================= -->
+  <div id="report" style="display:none">
+
+    <!-- 板块1：驾驶舱 -->
+    <div class="report-section" id="sec1">
+      <div class="sec-title"><h2>一、核心指标驾驶舱</h2><span>6项关键指标 · 30秒掌握财务健康状况 · 悬浮 ⓘ 查看计算公式</span></div>
+      <div class="dash-grid" id="dashGrid"></div>
+    </div>
+
+    <!-- 板块2：趋势图谱 -->
+    <div class="report-section" id="sec2">
+      <div class="sec-title"><h2>二、趋势分析图谱</h2><span>多期趋势 · 结构拆解 · 杜邦驱动因素分析</span></div>
+      <div class="chart-grid">
+        <div class="chart-box">
+          <h3>营收与利润趋势</h3>
+          <div class="csub" id="cagrText"></div>
+          <canvas id="chTrend"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>现金流结构（经营/投资/筹资）</h3>
+          <div class="csub">经营活动净现金流持续为正且占主导 = 造血能力健康</div>
+          <canvas id="chCash"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>期间费用率结构</h3>
+          <div class="csub">四项费用占营业收入比例（%）</div>
+          <canvas id="chExp"></canvas>
+        </div>
+        <div class="chart-box">
+          <h3>杜邦分析：ROE驱动因素拆解</h3>
+          <div class="csub">ROE = 净利率 × 总资产周转率 × 权益乘数</div>
+          <div class="dupont" id="dupontTree"></div>
+        </div>
+        <div class="chart-box wide">
+          <h3>指标明细表（含计算公式与安全阈值）</h3>
+          <div class="csub">用于核对计算逻辑，可直接截图附于报告附录</div>
+          <div class="table-wrap"><table id="metricTable"></table></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 板块3：文字解读 -->
+    <div class="report-section" id="sec3">
+      <div class="sec-title"><h2>三、经营分析与文字解读</h2><span>基于指标自动生成 · 建议结合业务实际复核修订</span></div>
+      <div id="analysisWrap"></div>
+    </div>
+
+    <!-- 板块4：风险预警 -->
+    <div class="report-section" id="sec4">
+      <div class="sec-title"><h2>四、风险预警清单</h2><span>可直接转发业务负责人跟进整改</span></div>
+      <div class="table-wrap"><table id="riskTable"></table></div>
+    </div>
+
+    <!-- 板块5：导出 -->
+    <div class="report-section" id="sec5">
+      <div class="sec-title"><h2>五、报告导出</h2><span>面向不同汇报场景</span></div>
+      <div class="export-panel">
+        <div class="desc">Word版含全部图表静态截图与文字分析，适合归档与正式分发；复制文字版适合粘贴至邮件正文；PPT大纲适合快速搭建管理层汇报材料。</div>
+        <button class="btn btn-primary" onclick="exportWord()">⬇ 一键导出Word（.doc）</button>
+        <button class="btn btn-primary" style="background:var(--green)" onclick="copyReport()">📋 一键复制报告文字</button>
+        <button class="btn btn-warn" onclick="copyPPT()">📑 复制PPT大纲（5-8页）</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer">本工具所有计算均在本地浏览器完成，数据不上传 · 公式与阈值可在代码中按需调整</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+ * 科目定义与关键词（长关键词优先匹配，避免误配）
+ * ============================================================ */
+const FIELD_DEFS = {
+  bs: [
+    {key:'totalLiabEquity', label:'负债及所有者权益总计', kw:['负债及所有者权益总计','负债和所有者权益总计']},
+    {key:'totalAssets',  label:'资产总计',   kw:['资产总计','资产合计','总资产']},
+    {key:'totalLiab',    label:'负债总计',   kw:['负债总计','负债合计','总负债']},
+    {key:'curAssets',    label:'流动资产合计', kw:['流动资产合计','流动资产总额','流动资产']},
+    {key:'curLiab',      label:'流动负债合计', kw:['流动负债合计','流动负债总额','流动负债']},
+    {key:'cash',         label:'货币资金',   kw:['货币资金','现金及银行存款']},
+    {key:'ar',           label:'应收票据及应收账款', kw:['应收票据及应收账款','应收账款','应收款项']},
+    {key:'inventory',    label:'存货',       kw:['存货']},
+    {key:'fixedAssets',  label:'固定资产',   kw:['固定资产']},
+    {key:'ap',           label:'应付票据及应付账款', kw:['应付票据及应付账款','应付账款','应付款项']},
+    {key:'payroll',      label:'应付职工薪酬', kw:['应付职工薪酬','应付工资']},
+    {key:'taxPayable',   label:'应交税费',   kw:['应交税费','应交税金']},
+    {key:'paidInCapital',label:'实收资本',   kw:['实收资本','股本']},
+    {key:'retainedEarnings', label:'未分配利润', kw:['未分配利润']},
+    {key:'equity',       label:'所有者权益合计', kw:['所有者权益合计','股东权益合计','所有者权益总额','归属于母公司所有者权益']}
+  ],
+  is: [
+    {key:'revenue',   label:'营业收入',  kw:['营业收入','主营业务收入','营业总收入']},
+    {key:'cogs',      label:'营业成本',  kw:['营业成本','主营业务成本','营业总成本']},
+    {key:'salesExp',  label:'销售费用',  kw:['销售费用']},
+    {key:'adminExp',  label:'管理费用',  kw:['管理费用']},
+    {key:'rdExp',     label:'研发费用',  kw:['研发费用','研究与开发费用']},
+    {key:'finExp',    label:'财务费用',  kw:['财务费用']},
+    {key:'impairment',label:'资产减值损失', kw:['资产减值损失','信用减值损失','减值损失']},
+    {key:'opProfit',  label:'营业利润',  kw:['营业利润']},
+    {key:'nonOpInc',  label:'营业外收入', kw:['营业外收入']},
+    {key:'nonOpExp',  label:'营业外支出', kw:['营业外支出']},
+    {key:'totalProfit',label:'利润总额', kw:['利润总额']},
+    {key:'incomeTax', label:'所得税费用', kw:['所得税费用','所得税']},
+    {key:'netProfit', label:'净利润',    kw:['净利润','净收益']}
+  ],
+  cf: [
+    {key:'cashFromSales', label:'销售商品提供劳务收到的现金', kw:['销售商品、提供劳务收到的现金','销售商品提供劳务收到的现金','销售商品收到的现金']},
+    {key:'cashToSuppliers', label:'购买商品接受劳务支付的现金', kw:['购买商品、接受劳务支付的现金','购买商品接受劳务支付的现金','购买商品支付的现金']},
+    {key:'cashToEmployees', label:'支付给职工的现金', kw:['支付给职工以及为职工支付的现金','支付给职工的现金']},
+    {key:'cashTaxes',  label:'支付的各项税费', kw:['支付的各项税费','支付的税费']},
+    {key:'cfo',        label:'经营活动净现金流', kw:['经营活动产生的现金流量净额','经营活动净现金流','经营现金流量净额']},
+    {key:'cfi',        label:'投资活动净现金流', kw:['投资活动产生的现金流量净额','投资活动净现金流','投资现金流量净额']},
+    {key:'cff',        label:'筹资活动净现金流', kw:['筹资活动产生的现金流量净额','筹资活动净现金流','筹资现金流量净额']},
+    {key:'netIncrease',label:'现金及现金等价物净增加额', kw:['现金及现金等价物净增加额','现金净增加额']}
+  ]
+};
+
+const SAMPLE = {
+  bs: `货币资金,8500,9200,7800
+应收票据及应收账款,12000,15600,21400
+存货,9800,11200,14500
+固定资产,22000,23500,24800
+流动资产合计,33000,38500,46200
+流动负债合计,16500,19800,25600
+资产总计,62000,69500,79800
+应付票据及应付账款,8600,9800,13100
+应付职工薪酬,2100,2400,2900
+应交税费,1300,1500,1700
+负债总计,24800,31200,43600
+实收资本,15000,15000,15000
+未分配利润,18200,18300,15200
+所有者权益合计,37200,38300,36200
+负债及所有者权益总计,62000,69500,79800`,
+  is: `营业收入,88000,96500,104800
+营业成本,59800,67600,77550
+销售费用,6200,7100,8300
+管理费用,5400,5900,6600
+研发费用,3600,4200,5100
+财务费用,800,1100,1650
+资产减值损失,300,450,900
+营业利润,11500,9700,6100
+营业外收入,350,280,320
+营业外支出,150,180,260
+利润总额,11700,9800,6160
+所得税费用,2925,2450,1540
+净利润,8775,7350,4620`,
+  cf: `销售商品提供劳务收到的现金,82000,88000,91200
+购买商品接受劳务支付的现金,56000,63000,74500
+支付给职工以及为职工支付的现金,9800,10800,12100
+支付的各项税费,7200,7800,8100
+经营活动产生的现金流量净额,10200,8600,4100
+投资活动产生的现金流量净额,-3500,-4200,-5600
+筹资活动产生的现金流量净额,-4800,-2200,2600
+现金及现金等价物净增加额,1900,2200,1100`
+};
+
+/* ============================================================
+ * 解析
+ * ============================================================ */
+function extractNumbers(str){
+  const out=[]; const re=/\(\s*(-?[\d,]+\.?\d*)\s*\)|(-?[\d,]+\.?\d*)\s*%?/g; let m;
+  while((m=re.exec(str))!==null){
+    let s=(m[1]||m[2]).replace(/,/g,''); let v=parseFloat(s);
+    if(m[1]!==undefined) v=-Math.abs(v);
+    if(!isNaN(v)) out.push(v);
+  }
+  return out.slice(0,3);
+}
+
+function parseTable(text, defs){
+  // 长关键词优先
+  const sorted=[...defs].sort((a,b)=>Math.max(...b.kw.map(k=>k.length))-Math.max(...a.kw.map(k=>k.length)));
+  const result={}; const assigned=new Set();
+  const lines=text.split(/\r?\n/);
+  for(const raw of lines){
+    const line=raw.trim(); if(!line) continue;
+    for(const def of sorted){
+      if(assigned.has(def.key)) continue;
+      let hit=null, hitIdx=-1;
+      for(const kw of def.kw){ const i=line.indexOf(kw); if(i>=0 && (hit===null || kw.length>hit.length)){ hit=kw; hitIdx=i; } }
+      if(hit){
+        const nums=extractNumbers(line.slice(hitIdx+hit.length));
+        if(nums.length>0){ result[def.key]=nums; assigned.add(def.key); }
+        break;
+      }
+    }
+  }
+  return result;
+}
+
+function readFileText(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=e=>{
+      let buf=e.target.result;
+      let txt=new TextDecoder('utf-8',{fatal:false}).decode(buf);
+      if(txt.includes('\ufffd')) txt=new TextDecoder('gbk',{fatal:false}).decode(buf);
+      resolve(txt);
+    };
+    reader.onerror=reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function handleFile(ev, target){
+  const file=ev.target.files[0]; if(!file) return;
+  const ta=document.getElementById('txt-'+target);
+  try{
+    if(/\.(xlsx|xls)$/i.test(file.name)){
+      const buf=await file.arrayBuffer();
+      const wb=XLSX.read(buf,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      ta.value=XLSX.utils.sheet_to_csv(ws);
+    }else{
+      ta.value=await readFileText(file);
+    }
+    toast('已读取文件：'+file.name);
+    autoRegen();
+  }catch(err){ toast('文件读取失败：'+err.message); }
+}
+
+/* ============================================================
+ * 取数与计算
+ * ============================================================ */
+let DATA=null, METRICS=null, CHARTS=[], reportReady=false;
+
+function latest(arr){ if(!arr) return null; for(let i=arr.length-1;i>=0;i--){ if(arr[i]!==null && arr[i]!==undefined && !isNaN(arr[i])) return arr[i]; } return null; }
+function avgBal(arr){ if(!arr) return null; const vs=arr.filter(v=>v!==null&&v!==undefined&&!isNaN(v)); if(!vs.length) return null; if(vs.length>=2) return (vs[vs.length-1]+vs[vs.length-2])/2; return vs[vs.length-1]; }
+function getPeriodCount(...tables){ let n=1; for(const t of tables){ for(const k in t){ if(t[k] && t[k].length>n) n=Math.min(t[k].length,3); } } return n; }
+function pad(arr,n){ if(!arr) return Array(n).fill(null); if(arr.length>=n) return arr.slice(arr.length-n); return Array(n-arr.length).fill(null).concat(arr); }
+
+function safeDiv(a,b){ if(a===null||b===null||b===0||a===undefined||b===undefined) return null; return a/b; }
+
+function computeMetrics(d){
+  const bs=d.bs, is=d.is, cf=d.cf;
+  const rev=latest(is.revenue), cogs=latest(is.cogs), np=latest(is.netProfit);
+  const gross = (rev!==null&&cogs!==null)? rev-cogs : null;
+  const equityLatest = latest(bs.equity)!==null ? latest(bs.equity)
+    : (latest(bs.totalAssets)!==null&&latest(bs.totalLiab)!==null ? latest(bs.totalAssets)-latest(bs.totalLiab) : null);
+  const equityArr = bs.equity ? bs.equity : (bs.totalAssets&&bs.totalLiab ? bs.totalAssets.map((v,i)=> (v!==null&&bs.totalLiab[i]!==null&&v!==undefined&&bs.totalLiab[i]!==undefined)? v-bs.totalLiab[i]:null) : null);
+  const eqAvg = avgBal(equityArr), taAvg=avgBal(bs.totalAssets);
+  const arAvg=avgBal(bs.ar), invAvg=avgBal(bs.inventory), apAvg=avgBal(bs.ap);
+
+  const bm={ gross:parseFloat(document.getElementById('bmGross').value)||30,
+             ar:parseFloat(document.getElementById('bmAR').value)||60,
+             inv:parseFloat(document.getElementById('bmInv').value)||90,
+             ap:parseFloat(document.getElementById('bmAP').value)||60 };
+
+  const M={ bm, rev, cogs, np, gross, equityLatest, eqAvg, taAvg };
+  M.currentRatio  = safeDiv(latest(bs.curAssets), latest(bs.curLiab));
+  M.quickRatio    = (latest(bs.curAssets)!==null&&latest(bs.curLiab)!==null&&latest(bs.curLiab)!==0&&latest(bs.inventory)!==null)? (latest(bs.curAssets)-latest(bs.inventory))/latest(bs.curLiab) : null;
+  M.debtRatio     = safeDiv(latest(bs.totalLiab), latest(bs.totalAssets));
+  M.grossMargin   = safeDiv(gross, rev);
+  M.netMargin     = safeDiv(np, rev);
+  M.roe           = safeDiv(np, eqAvg);
+  M.arDays        = (rev&&arAvg!==null)? 365*arAvg/rev : null;
+  M.invDays       = (cogs&&invAvg!==null)? 365*invAvg/cogs : null;
+  M.apDays        = (cogs&&apAvg!==null)? 365*apAvg/cogs : null;
+  M.assetTurnover = safeDiv(rev, taAvg);
+  M.equityMultiplier = safeDiv(taAvg, eqAvg);
+  M.netCashRatio  = safeDiv(latest(cf.cfo), np);
+  // 多期序列
+  M.series = {
+    revenue: pad(is.revenue,3), gross: is.revenue&&is.cogs? pad(is.revenue,3).map((v,i)=> (v!==null&&pad(is.cogs,3)[i]!==null)? v-pad(is.cogs,3)[i]:null):pad(null,3),
+    netProfit: pad(is.netProfit,3),
+    cfo: pad(cf.cfo,3), cfi: pad(cf.cfi,3), cff: pad(cf.cff,3),
+    salesRate: pad(is.salesExp,3).map((v,i)=> v!==null&&pad(is.revenue,3)[i]? v/pad(is.revenue,3)[i]*100:null),
+    adminRate: pad(is.adminExp,3).map((v,i)=> v!==null&&pad(is.revenue,3)[i]? v/pad(is.revenue,3)[i]*100:null),
+    rdRate:    pad(is.rdExp,3).map((v,i)=> v!==null&&pad(is.revenue,3)[i]? v/pad(is.revenue,3)[i]*100:null),
+    finRate:   pad(is.finExp,3).map((v,i)=> v!==null&&pad(is.revenue,3)[i]? v/pad(is.revenue,3)[i]*100:null)
+  };
+  // 上期对比（用于杜邦与趋势文字）
+  const prev = arr=>{ if(!arr) return null; const vs=arr.filter(v=>v!==null&&v!==undefined&&!isNaN(v)); return vs.length>=2? vs[vs.length-2]:null; };
+  const pRev=prev(is.revenue), pNp=prev(is.netProfit);
+  const pEquityArr = equityArr? equityArr.filter(v=>v!==null&&v!==undefined&&!isNaN(v)) : [];
+  const pTaArr = bs.totalAssets? bs.totalAssets.filter(v=>v!==null&&v!==undefined&&!isNaN(v)) : [];
+  M.prev = {
+    rev:pRev, np:pNp,
+    netMargin: safeDiv(pNp,pRev),
+    roe: (pNp!==null && pEquityArr.length>=2)? pNp/((pEquityArr[pEquityArr.length-1]+pEquityArr[pEquityArr.length-2])/2) : (pNp!==null&&pEquityArr.length===1? pNp/pEquityArr[0]:null),
+    assetTurnover: (pRev!==null&&pTaArr.length>=2)? pRev/((pTaArr[pTaArr.length-1]+pTaArr[pTaArr.length-2])/2) : null
+  };
+  if(M.prev.roe!==null && M.prev.netMargin!==null && M.prev.assetTurnover!==null && M.prev.assetTurnover!==0 && M.prev.netMargin!==0){
+    M.prev.equityMultiplier = M.prev.roe/(M.prev.netMargin*M.prev.assetTurnover);
+  } else M.prev.equityMultiplier=null;
+  return M;
+}
+
+/* ============================================================
+ * 状态判断
+ * ============================================================ */
+function judge(M){
+  const J={};
+  const range=(v,lo,hi,badBelow,warnBelow,warnAbove)=>{
+    if(v===null) return {st:'na',txt:'数据缺失'};
+    if(badBelow!==undefined&&v<badBelow) return {st:'bad'};
+    if(warnBelow!==undefined&&v<warnBelow) return {st:'warn'};
+    if(warnAbove!==undefined&&v>warnAbove) return {st:'warn'};
+    return {st:'ok'};
+  };
+  J.currentRatio = M.currentRatio===null?{st:'na'}: M.currentRatio<1?{st:'bad'}: M.currentRatio<1.5?{st:'warn'}: M.currentRatio>3?{st:'warn'}:{st:'ok'};
+  J.quickRatio   = M.quickRatio===null?{st:'na'}: M.quickRatio<0.5?{st:'bad'}: M.quickRatio<0.8?{st:'warn'}:{st:'ok'};
+  J.debtRatio    = M.debtRatio===null?{st:'na'}: M.debtRatio>0.7?{st:'bad'}: M.debtRatio>0.6?{st:'warn'}: M.debtRatio<0.3?{st:'warn'}:{st:'ok'};
+  J.grossMargin  = M.grossMargin===null?{st:'na'}: M.grossMargin < (M.bm.gross-10)/100?{st:'bad'}: M.grossMargin < M.bm.gross/100?{st:'warn'}:{st:'ok'};
+  J.netMargin    = M.netMargin===null?{st:'na'}: M.netMargin<0?{st:'bad'}: M.netMargin<0.05?{st:'warn'}:{st:'ok'};
+  J.roe          = M.roe===null?{st:'na'}: M.roe<0?{st:'bad'}: M.roe<0.06?{st:'warn'}:{st:'ok', excellent:M.roe>0.15};
+  J.arDays       = M.arDays===null?{st:'na'}: M.arDays> M.bm.ar+50?{st:'bad'}: M.arDays> M.bm.ar+20?{st:'warn'}:{st:'ok'};
+  J.invDays      = M.invDays===null?{st:'na'}: M.invDays> M.bm.inv+90?{st:'bad'}: M.invDays> M.bm.inv+30?{st:'warn'}:{st:'ok'};
+  J.apDays       = M.apDays===null?{st:'na'}: M.apDays> M.bm.ap+30?{st:'warn'}:{st:'ok'};
+  J.netCashRatio = M.netCashRatio===null?{st:'na'}: M.netCashRatio<0.5?{st:'bad'}: M.netCashRatio<1?{st:'warn'}:{st:'ok'};
+  return J;
+}
+
+/* ============================================================
+ * 格式化
+ * ============================================================ */
+const fmtN = (v,d=2)=> v===null||v===undefined||isNaN(v)? '—' : Number(v).toLocaleString('zh-CN',{maximumFractionDigits:d,minimumFractionDigits:0});
+const fmtP = (v,d=1)=> v===null||v===undefined||isNaN(v)? '—' : (v*100).toFixed(d)+'%';
+const fmtD = v=> v===null||v===undefined||isNaN(v)? '—' : Math.round(v)+'天';
+const stTxt = {ok:'🟢 正常', warn:'🟡 需关注', bad:'🔴 异常', na:'⚪ 缺失'};
+
+function periodNames(n){
+  const all=[document.getElementById('pn0').value||'期间一', document.getElementById('pn1').value||'期间二', document.getElementById('pn2').value||'本期'];
+  return all.slice(3-n);
+}
+
+/* ============================================================
+ * 主流程
+ * ============================================================ */
+function generate(){
+  const bs=parseTable(document.getElementById('txt-bs').value, FIELD_DEFS.bs);
+  const is=parseTable(document.getElementById('txt-is').value, FIELD_DEFS.is);
+  const cf=parseTable(document.getElementById('txt-cf').value, FIELD_DEFS.cf);
+  const n=getPeriodCount(bs,is,cf);
+  DATA={bs,is,cf,n};
+
+  const missing=[];
+  for(const t of ['bs','is','cf']){
+    for(const def of FIELD_DEFS[t]){
+      if(!DATA[t][def.key]) missing.push(def.label);
+    }
+  }
+  const ps=document.getElementById('parseStatus');
+  if(missing.length>0){
+    ps.className='parse-status warn';
+    ps.innerHTML='⚠️ 已解析 '+(Object.keys(bs).length+Object.keys(is).length+Object.keys(cf).length)+' 个科目；未识别科目（'+missing.length+'项）：'+missing.join('、')+'。相关指标将显示「—」，可检查科目名称或补充数据。';
+  }else{
+    ps.className='parse-status ok';
+    ps.innerHTML='✅ 三表科目全部识别成功，共 '+n+' 期数据。';
+  }
+  if(Object.keys(is).length<3){ ps.className='parse-status warn'; ps.innerHTML='⚠️ 利润表关键数据不足，无法生成报告。请至少录入营业收入、营业成本、净利润。'; return; }
+
+  METRICS=computeMetrics(DATA);
+  METRICS.J=judge(METRICS);
+  document.getElementById('report').style.display='block';
+  renderDashboard(); renderCharts(); renderMetricTable(); renderAnalysis(); renderRiskTable();
+  reportReady=true;
+  document.getElementById('report').scrollIntoView({behavior:'smooth'});
+}
+
+let regenTimer=null;
+function autoRegen(){ if(!reportReady) return; clearTimeout(regenTimer); regenTimer=setTimeout(generate,800); }
+
+/* ============================================================
+ * 板块1：驾驶舱
+ * ============================================================ */
+function cardDef(M){
+  const F=(f,vals)=>'公式：'+f+'｜本期取值：'+vals;
+  return [
+    {key:'currentRatio', name:'流动比率', val:fmtN(M.currentRatio), raw:M.currentRatio,
+     formula:F('流动资产 ÷ 流动负债', fmtN(latest(DATA.bs.curAssets))+' ÷ '+fmtN(latest(DATA.bs.curLiab))),
+     dev:()=>devRange(M.currentRatio,1.5,2.0,'低于1.0存在短期偿债风险')},
+    {key:'debtRatio', name:'资产负债率', val:fmtP(M.debtRatio), raw:M.debtRatio,
+     formula:F('负债总计 ÷ 资产总计', fmtN(latest(DATA.bs.totalLiab))+' ÷ '+fmtN(latest(DATA.bs.totalAssets))),
+     dev:()=>devRange(M.debtRatio,0.4,0.6,'高于70%杠杆过高，低于30%杠杆利用不足',true)},
+    {key:'grossMargin', name:'毛利率', val:fmtP(M.grossMargin), raw:M.grossMargin,
+     formula:F('(营业收入−营业成本) ÷ 营业收入', fmtN(M.gross)+' ÷ '+fmtN(M.rev)),
+     dev:()=>devVs(M.grossMargin, M.bm.gross/100, '行业均值'+M.bm.gross+'%', true)},
+    {key:'netMargin', name:'净利率', val:fmtP(M.netMargin), raw:M.netMargin,
+     formula:F('净利润 ÷ 营业收入', fmtN(M.np)+' ÷ '+fmtN(M.rev)),
+     dev:()=>devVs(M.netMargin,0.05,'安全线5%',true)},
+    {key:'roe', name:'净资产收益率 ROE', val:fmtP(M.roe), raw:M.roe,
+     formula:F('净利润 ÷ 平均所有者权益', fmtN(M.np)+' ÷ '+fmtN(M.eqAvg)),
+     dev:()=> M.roe===null?'—': M.roe>0.15?'高于优秀线15%':'参考线6%，优秀线15%'},
+    {key:'arDays', name:'应收账款周转天数', val:fmtD(M.arDays), raw:M.arDays,
+     formula:F('365 × 平均应收账款 ÷ 营业收入', '365 × '+fmtN(avgBal(DATA.bs.ar))+' ÷ '+fmtN(M.rev)),
+     dev:()=>devVs(M.arDays, M.bm.ar, '行业均值'+M.bm.ar+'天', false, '天')}
+  ];
+}
+function devRange(v,lo,hi,note,isPct){
+  if(v===null) return '数据缺失';
+  const f=x=>isPct? (x*100).toFixed(1)+'%' : x.toFixed(2);
+  if(v<lo) return '低于安全下限 '+(((lo-v)/lo)*100).toFixed(1)+'%（安全区间 '+f(lo)+'~'+f(hi)+'）';
+  if(v>hi) return '高于安全上限 '+(((v-hi)/hi)*100).toFixed(1)+'%（安全区间 '+f(lo)+'~'+f(hi)+'）';
+  return '处于安全区间（'+f(lo)+'~'+f(hi)+'）';
+}
+function devVs(v,bench,benchLabel,higherBetter,unit){
+  if(v===null) return '数据缺失';
+  const diff = higherBetter? v-bench : bench-v;
+  const pct = bench!==0? Math.abs(diff/bench*100).toFixed(1)+'%' : '—';
+  if(diff>=0) return (higherBetter?'高于':'低于')+'对标值 '+pct+'（'+benchLabel+'）';
+  return (higherBetter?'低于':'高于')+'对标值 '+pct+'（'+benchLabel+'）';
+}
+
+function renderDashboard(){
+  const M=METRICS, cards=cardDef(M);
+  const html=cards.map(c=>{
+    const j=M.J[c.key], st=j? j.st:'na';
+    const extra=(j&&j.excellent)?' ⭐优秀':'';
+    return `<div class="kpi-card ${st}">
+      <div class="kpi-name">${c.name} <span class="tip" data-tip="${c.formula.replace(/"/g,'&quot;')}">i</span></div>
+      <div class="kpi-value">${c.val}</div>
+      <div class="kpi-status">${stTxt[st]}${extra}</div>
+      <div class="kpi-dev">${c.dev()}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('dashGrid').innerHTML=html;
+}
+
+/* ============================================================
+ * 板块2：图表
+ * ============================================================ */
+function cagr(arr){
+  const vs=(arr||[]).filter(v=>v!==null&&v!==undefined&&!isNaN(v));
+  if(vs.length<2||vs[0]<=0) return null;
+  return Math.pow(vs[vs.length-1]/vs[0],1/(vs.length-1))-1;
+}
+
+function renderCharts(){
+  CHARTS.forEach(c=>c.destroy()); CHARTS=[];
+  const M=METRICS, n=DATA.n, labels=periodNames(n);
+  const S=M.series;
+  const sl=a=>a.slice(3-n);
+  const baseOpts={responsive:true, maintainAspectRatio:true, plugins:{legend:{labels:{font:{size:11}}}}};
+
+  const revC=cagr(S.revenue), npC=cagr(S.netProfit);
+  document.getElementById('cagrText').textContent =
+    (revC!==null? '营收复合增长率 '+(revC*100).toFixed(1)+'%':'') +
+    (npC!==null? (revC!==null?'　｜　':'')+'净利润复合增长率 '+(npC*100).toFixed(1)+'%' : '');
+
+  CHARTS.push(new Chart(document.getElementById('chTrend'),{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'营业收入', data:sl(S.revenue), borderColor:'#2b6cb0', backgroundColor:'#2b6cb0', tension:.3, pointRadius:4},
+      {label:'毛利', data:sl(S.gross), borderColor:'#ed8936', backgroundColor:'#ed8936', tension:.3, pointRadius:4},
+      {label:'净利润', data:sl(S.netProfit), borderColor:'#48bb78', backgroundColor:'#48bb78', tension:.3, pointRadius:4}
+    ]},
+    options:baseOpts
+  }));
+
+  CHARTS.push(new Chart(document.getElementById('chCash'),{
+    type:'line',
+    data:{labels, datasets:[
+      {label:'经营活动', data:sl(S.cfo), borderColor:'#2b6cb0', backgroundColor:'rgba(43,108,176,.55)', fill:true, tension:.3},
+      {label:'投资活动', data:sl(S.cfi), borderColor:'#ed8936', backgroundColor:'rgba(237,137,54,.55)', fill:true, tension:.3},
+      {label:'筹资活动', data:sl(S.cff), borderColor:'#a0aec0', backgroundColor:'rgba(160,174,192,.55)', fill:true, tension:.3}
+    ]},
+    options:{...baseOpts, scales:{y:{stacked:false, title:{display:true,text:'净现金流'}}}}
+  }));
+
+  CHARTS.push(new Chart(document.getElementById('chExp'),{
+    type:'bar',
+    data:{labels, datasets:[
+      {label:'销售费用率', data:sl(S.salesRate), backgroundColor:'#2b6cb0'},
+      {label:'管理费用率', data:sl(S.adminRate), backgroundColor:'#ed8936'},
+      {label:'研发费用率', data:sl(S.rdRate), backgroundColor:'#48bb78'},
+      {label:'财务费用率', data:sl(S.finRate), backgroundColor:'#a0aec0'}
+    ]},
+    options:{...baseOpts, scales:{y:{title:{display:true,text:'%'}}}}
+  }));
+
+  renderDupont();
+}
+
+function delta(cur,prev,higherGood){
+  if(cur===null||prev===null||prev===undefined||isNaN(cur)||isNaN(prev)) return '';
+  const d=cur-prev; if(Math.abs(d)<1e-9) return '<span style="color:var(--muted)">持平</span>';
+  const good = higherGood? d>0 : d<0;
+  const cls = good? 'down':'up';
+  const arrow = d>0? '↑':'↓';
+  const txt = Math.abs(d)>=1? Math.abs(d).toFixed(2) : (Math.abs(d)*100).toFixed(1)+'pct';
+  return `<span class="${cls}">${arrow}${txt}</span>`;
+}
+
+function renderDupont(){
+  const M=METRICS;
+  const box=(label,val,deltaHtml,cls='')=>`<div class="dp-box ${cls}"><div class="dp-label">${label}</div><div class="dp-val">${val}</div><div class="dp-delta">${deltaHtml||''}</div></div>`;
+  let driver='';
+  if(M.prev.roe!==null && M.roe!==null){
+    const parts=[];
+    if(M.prev.netMargin!==null&&M.netMargin!==null){ const d=(M.netMargin-M.prev.netMargin); if(Math.abs(d)>0.002) parts.push((d>0?'盈利能力改善':'盈利能力下滑')+'（净利率 '+fmtP(M.prev.netMargin)+'→'+fmtP(M.netMargin)+'）'); }
+    if(M.prev.assetTurnover!==null&&M.assetTurnover!==null){ const d=M.assetTurnover-M.prev.assetTurnover; if(Math.abs(d)>0.01) parts.push((d>0?'资产效率提升':'资产效率下降')+'（周转率 '+M.prev.assetTurnover.toFixed(2)+'→'+M.assetTurnover.toFixed(2)+'）'); }
+    if(M.prev.equityMultiplier!==null&&M.equityMultiplier!==null){ const d=M.equityMultiplier-M.prev.equityMultiplier; if(Math.abs(d)>0.03) parts.push((d>0?'杠杆加大':'杠杆下降')+'（权益乘数 '+M.prev.equityMultiplier.toFixed(2)+'→'+M.equityMultiplier.toFixed(2)+'）'); }
+    driver = parts.length? '本期ROE变动主要由：'+parts.join('；')+' 驱动。':'本期ROE与上期基本持平。';
+  } else driver='仅单期数据，无法对比ROE驱动因素变动。录入多期数据后可查看趋势归因。';
+
+  document.getElementById('dupontTree').innerHTML=`
+    ${box('净资产收益率 ROE', fmtP(M.roe), delta(M.roe,M.prev.roe,true), 'dp-root')}
+    <div class="dp-connector"></div>
+    <div class="dp-level">
+      ${box('净利率', fmtP(M.netMargin), delta(M.netMargin,M.prev.netMargin,true), 'dp-mid')}
+      ${box('× 总资产周转率', M.assetTurnover===null?'—':M.assetTurnover.toFixed(2)+'次', delta(M.assetTurnover,M.prev.assetTurnover,true), 'dp-mid')}
+      ${box('× 权益乘数', M.equityMultiplier===null?'—':M.equityMultiplier.toFixed(2), delta(M.equityMultiplier,M.prev.equityMultiplier,true), 'dp-mid')}
+    </div>
+    <div class="dp-connector"></div>
+    <div class="dp-level">
+      ${box('净利润 ÷ 营业收入', fmtN(M.np)+' / '+fmtN(M.rev))}
+      ${box('营业收入 ÷ 平均总资产', fmtN(M.rev)+' / '+fmtN(M.taAvg))}
+      ${box('平均总资产 ÷ 平均净资产', fmtN(M.taAvg)+' / '+fmtN(M.eqAvg))}
+    </div>
+    <div class="dp-note">📌 <b>驱动归因：</b>${driver}</div>`;
+}
+
+/* ============================================================
+ * 指标明细表
+ * ============================================================ */
+function renderMetricTable(){
+  const M=METRICS, J=M.J;
+  const rows=[
+    ['偿债能力','流动比率',fmtN(M.currentRatio),'1.5 ~ 2.0','流动资产 ÷ 流动负债',J.currentRatio],
+    ['偿债能力','速动比率',fmtN(M.quickRatio),'0.8 ~ 1.0','(流动资产−存货) ÷ 流动负债',J.quickRatio],
+    ['偿债能力','资产负债率',fmtP(M.debtRatio),'40% ~ 60%','负债总计 ÷ 资产总计',J.debtRatio],
+    ['盈利能力','毛利率',fmtP(M.grossMargin),'≥行业均值 '+M.bm.gross+'%','(营业收入−营业成本) ÷ 营业收入',J.grossMargin],
+    ['盈利能力','净利率',fmtP(M.netMargin),'≥5%','净利润 ÷ 营业收入',J.netMargin],
+    ['盈利能力','ROE',fmtP(M.roe),'≥6%（>15%优秀）','净利润 ÷ 平均所有者权益',J.roe],
+    ['营运能力','应收账款周转天数',fmtD(M.arDays),'≤行业均值 '+M.bm.ar+'天','365 × 平均应收账款 ÷ 营业收入',J.arDays],
+    ['营运能力','存货周转天数',fmtD(M.invDays),'≤行业均值 '+M.bm.inv+'天','365 × 平均存货 ÷ 营业成本',J.invDays],
+    ['营运能力','应付账款周转天数',fmtD(M.apDays),'≤行业均值 '+M.bm.ap+'天','365 × 平均应付账款 ÷ 营业成本',J.apDays],
+    ['现金流','净现比',M.netCashRatio===null?'—':M.netCashRatio.toFixed(2),'≥1','经营活动净现金流 ÷ 净利润',J.netCashRatio]
+  ];
+  document.getElementById('metricTable').innerHTML=
+    '<tr><th>维度</th><th>指标</th><th>本期值</th><th>安全阈值</th><th>计算公式</th><th>状态</th></tr>'+
+    rows.map(r=>`<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td>${r[3]}</td><td style="color:var(--muted);font-size:12px">${r[4]}</td><td><span class="badge ${r[5].st}">${stTxt[r[5].st]}</span></td></tr>`).join('');
+}
+
+/* ============================================================
+ * 板块3：文字解读
+ * ============================================================ */
+function renderAnalysis(){
+  const M=METRICS, J=M.J, pn=periodNames(DATA.n), cur=pn[pn.length-1];
+  const blocks=[];
+
+  // 偿债
+  let t1=`<p>截至${cur}，公司流动比率为 <b>${fmtN(M.currentRatio)}</b>（安全区间1.5~2.0），速动比率为 <b>${fmtN(M.quickRatio)}</b>（安全区间0.8~1.0）。`;
+  if(J.currentRatio.st==='bad') t1+='流动比率低于1.0，流动资产已无法覆盖流动负债，<b>短期偿债能力存在实质性风险</b>，需立即评估短期借款续贷安排与经营性回款计划。';
+  else if(J.currentRatio.st==='warn') t1+= M.currentRatio<1.5? '流动比率低于安全区间下限，短期流动性缓冲偏薄，建议关注短期债务到期结构。':'流动比率高于3.0，流动资产占用偏高，可能存在资金沉淀或存货积压，资产利用效率有待提升。';
+  else t1+='短期流动性指标处于安全区间，流动资产对流动负债的覆盖较为充分。';
+  t1+=`</p><p>长期偿债方面，资产负债率为 <b>${fmtP(M.debtRatio)}</b>。`;
+  if(J.debtRatio.st==='bad') t1+='资产负债率超过70%警戒线，财务杠杆过高，利息负担与再融资风险显著，<b>存在债务违约隐患</b>，建议将降杠杆列为财务工作重点。';
+  else if(J.debtRatio.st==='warn') t1+= M.debtRatio>0.6? '负债率已突破60%安全上限，杠杆水平偏高，需关注有息负债规模与利率变动的敏感性。':'负债率低于30%，财务策略偏保守，未充分利用财务杠杆放大股东回报，可结合投资回报审慎评估适度举债空间。';
+  else t1+='杠杆水平处于40%~60%的合理区间，长期偿债风险总体可控。';
+  t1+='</p>';
+  blocks.push(['🏦 偿债能力评价', t1]);
+
+  // 盈利
+  let t2=`<p>${cur}公司实现营业收入 <b>${fmtN(M.rev)}</b>，毛利率 <b>${fmtP(M.grossMargin)}</b>（行业对标均值 ${M.bm.gross}%），净利率 <b>${fmtP(M.netMargin)}</b>，ROE <b>${fmtP(M.roe)}</b>。`;
+  if(J.grossMargin.st==='bad') t2+='毛利率低于行业均值10个百分点以上，主业定价能力或成本管控存在明显短板，<b>需排查产品结构、原材料成本与降价压力</b>。';
+  else if(J.grossMargin.st==='warn') t2+='毛利率低于行业均值，主业盈利空间受到挤压，建议分析客户/产品结构并评估提价或降本方案。';
+  else t2+='毛利率达到或超过行业均值，主业具备较好的盈利基础。';
+  if(J.netMargin.st==='bad') t2+='净利率为负，公司处于亏损状态，需立即开展成本费用与收入的结构性诊断。';
+  else if(J.netMargin.st==='warn') t2+='净利率低于5%安全线，期间费用或非经常性损益对利润侵蚀较大，盈利质量偏弱。';
+  if(J.roe.excellent) t2+='ROE超过15%优秀线，股东回报水平突出。';
+  else if(J.roe.st==='warn') t2+='ROE低于6%，资本回报不足以覆盖股权资金的机会成本。';
+  else if(J.roe.st==='bad') t2+='ROE为负，股东资本正在被侵蚀。';
+  const revC=cagr(M.series.revenue), npC=cagr(M.series.netProfit);
+  if(revC!==null) t2+=` 多期趋势看，营收复合增长率 ${(revC*100).toFixed(1)}%${npC!==null? '，净利润复合增长率 '+(npC*100).toFixed(1)+'%':''}${npC!==null&&npC<revC? '，<b>利润增速落后于收入增速，呈现增收不增利特征</b>':''}。`;
+  t2+='</p>';
+  blocks.push(['💰 盈利能力评价', t2]);
+
+  // 营运
+  const ccc=(M.arDays!==null&&M.invDays!==null&&M.apDays!==null)? Math.round(M.arDays+M.invDays-M.apDays):null;
+  let t3=`<p>营运效率方面，应收账款周转天数 <b>${fmtD(M.arDays)}</b>（行业均值约${M.bm.ar}天），存货周转天数 <b>${fmtD(M.invDays)}</b>（行业均值约${M.bm.inv}天），应付账款周转天数 <b>${fmtD(M.apDays)}</b>。`;
+  if(ccc!==null) t3+=`现金循环周期约 <b>${ccc}天</b>。`;
+  if(J.arDays.st==='bad') t3+='应收账款周转天数超出行业均值50天以上，回款严重滞后，资金被客户大量占用，<b>坏账风险与资金成本双升</b>。';
+  else if(J.arDays.st==='warn') t3+='应收账款周转天数高于行业均值20天以上，回款效率偏弱，需关注大客户账期与逾期情况。';
+  else if(M.arDays!==null) t3+='回款速度处于行业合理水平。';
+  if(J.invDays.st==='bad') t3+='存货周转天数超行业均值90天以上，存货积压风险高，需排查滞销品并评估跌价准备计提充分性。';
+  else if(J.invDays.st==='warn') t3+='存货周转偏慢，存在一定积压风险，建议优化备货与生产排程。';
+  if(J.apDays.st==='warn') t3+='应付账款周转天数显著高于行业均值，对供应商资金占用较多，长期可能影响供应链关系与议价能力。';
+  if(J.netCashRatio.st!=='ok'&&M.netCashRatio!==null) t3+=`<br><b>⚠️ 净现比仅 ${M.netCashRatio.toFixed(2)}，净利润中相当部分未转化为现金流入，存在「纸面利润、现金吃紧」的迹象，利润含金量不足。</b>`;
+  t3+='</p>';
+  blocks.push(['🔄 营运能力评价', t3]);
+
+  // 现金流
+  const cfo=latest(DATA.cf.cfo), cfi=latest(DATA.cf.cfi), cff=latest(DATA.cf.cff), netInc=latest(DATA.cf.netIncrease);
+  let t4=`<p>${cur}经营活动净现金流 <b>${fmtN(cfo)}</b>，投资活动净现金流 <b>${fmtN(cfi)}</b>，筹资活动净现金流 <b>${fmtN(cff)}</b>，现金及现金等价物净增加 <b>${fmtN(netInc)}</b>。`;
+  if(cfo!==null&&cfo>0) t4+='经营活动持续产生正向现金流，主业「造血能力」是公司资金的基本盘。';
+  else if(cfo!==null) t4+='<b>经营活动现金流为负，主业自身无法造血</b>，资金链高度依赖外部融资或存量资金，风险等级高。';
+  if(M.netCashRatio!==null) t4+=`净现比（经营现金流/净利润）为 <b>${M.netCashRatio.toFixed(2)}</b>${M.netCashRatio>=1? '，大于1，利润有现金流支撑，盈利质量较高':'，小于1，利润未能被现金流完全覆盖，需关注应收与存货对利润的占用'}。`;
+  if(cfi!==null&&cfi<0) t4+='投资活动净流出表明公司仍在进行产能或长期资产投入。';
+  if(cff!==null&&cff>0) t4+='筹资活动净流入，公司正在加杠杆或引入外部资金支持扩张/周转。';
+  else if(cff!==null&&cff<0) t4+='筹资活动净流出，公司整体处于去杠杆或分红还债阶段。';
+  t4+='</p>';
+  blocks.push(['💧 现金流质量评价', t4]);
+
+  // 综合结论
+  const badCnt=Object.values(J).filter(j=>j.st==='bad').length;
+  const warnCnt=Object.values(J).filter(j=>j.st==='warn').length;
+  const verdict = badCnt>0? ['风险状态','bad'] : warnCnt>=3? ['亚健康状态','warn'] : warnCnt>0? ['总体健康（局部需关注）','ok'] : ['健康状态','ok'];
+  const suggestions=buildSuggestions(M,J);
+  let t5=`<p class="conclusion"><b>综合结论：</b>公司整体财务状况处于<span class="verdict" style="background:var(--${verdict[1]==='bad'?'bad':verdict[1]==='warn'?'warn':'ok'}-bg);color:var(--${verdict[1]==='bad'?'bad':verdict[1]==='warn'?'warn':'ok'}-fg)">${verdict[0]}</span><br>本期共识别 <b>${badCnt}</b> 项异常指标、<b>${warnCnt}</b> 项需关注指标（详见第四节风险预警清单）。</p><p><b>管理建议：</b></p><ul>${suggestions.map(s=>'<li>'+s+'</li>').join('')}</ul>`;
+  blocks.push(['📋 综合结论与建议', t5]);
+
+  document.getElementById('analysisWrap').innerHTML = blocks.map(b=>
+    `<div class="analysis-block"><h3>${b[0]}</h3>${b[1]}</div>`).join('');
+}
+
+function buildSuggestions(M,J){
+  const s=[];
+  if(J.arDays.st!=='ok') s.push('应收账款周转天数偏高（'+fmtD(M.arDays)+'），建议加强客户信用评估与分级管理，对逾期客户启动专项催收，并将回款率纳入销售考核。');
+  if(J.invDays.st!=='ok') s.push('存货周转偏慢（'+fmtD(M.invDays)+'），建议开展库存结构盘点，清理呆滞料，优化以销定产的备货模型。');
+  if(J.debtRatio.st==='bad'||(J.debtRatio.st==='warn'&&M.debtRatio>0.6)) s.push('资产负债率偏高（'+fmtP(M.debtRatio)+'），建议制定分阶段降杠杆计划，优先置换高成本短债，严控新增非经营性负债。');
+  if(J.debtRatio.st==='warn'&&M.debtRatio<0.3) s.push('杠杆利用不足（负债率'+fmtP(M.debtRatio)+'），可在风险可控前提下，评估低成本融资支持高回报项目的可行性。');
+  if(J.grossMargin.st!=='ok') s.push('毛利率低于行业均值（'+fmtP(M.grossMargin)+' vs '+M.bm.gross+'%），建议分产品线核算边际贡献，聚焦高毛利产品，并与采购端共商降本方案。');
+  if(J.netMargin.st!=='ok') s.push('净利率偏低（'+fmtP(M.netMargin)+'），建议开展期间费用专项审视，识别非必要开支，评估费用投入的产出效率。');
+  if(J.netCashRatio.st!=='ok'&&M.netCashRatio!==null) s.push('净现比仅'+M.netCashRatio.toFixed(2)+'，利润现金含量不足，建议将「经营现金流」纳入月度经营例会核心监控指标，推动利润向现金转化。');
+  if(J.currentRatio.st!=='ok') s.push('短期流动性偏紧（流动比率'+fmtN(M.currentRatio)+'），建议滚动编制13周资金计划，提前安排短期债务的接续与偿付。');
+  if(J.roe.st!=='ok'&&!J.roe.excellent) s.push('ROE低于6%（'+fmtP(M.roe)+'），建议结合杜邦拆解定位薄弱环节——是盈利、周转还是杠杆问题，针对性改善资本回报。');
+  if(J.apDays.st==='warn') s.push('应付账款占用偏高（'+fmtD(M.apDays)+'），建议平衡账期管理与供应商关系，避免因过度占款损害供应链稳定。');
+  if(s.length===0) s.push('各项指标总体健康，建议保持现有经营节奏，重点关注行业均值变化并定期复盘指标趋势。','可适度加大研发与市场投入，将财务稳健转化为增长动能。');
+  return s.slice(0,4);
+}
+
+/* ============================================================
+ * 板块4：风险预警清单
+ * ============================================================ */
+function renderRiskTable(){
+  const M=METRICS, J=M.J;
+  const defs=[
+    ['currentRatio','流动比率',fmtN(M.currentRatio),'1.5~2.0',M.currentRatio,'短期偿债困难，资金链断裂风险','编制滚动资金计划，加快回款，压缩非必要开支'],
+    ['quickRatio','速动比率',fmtN(M.quickRatio),'0.8~1.0',M.quickRatio,'剔除存货后流动性不足，变现能力弱','盘活货币资金与应收账款，审慎安排短期负债'],
+    ['debtRatio','资产负债率',fmtP(M.debtRatio),'40%~60%',M.debtRatio,'杠杆过高，债务违约与再融资风险','制定降杠杆计划，置换高成本债务，引入权益资金'],
+    ['grossMargin','毛利率',fmtP(M.grossMargin),'≥行业均值'+M.bm.gross+'%',M.grossMargin,'主业盈利能力弱于同业，竞争地位受损','优化产品结构，推动降本与价值定价'],
+    ['netMargin','净利率',fmtP(M.netMargin),'≥5%',M.netMargin,'盈利微薄或亏损，抗风险能力差','费用专项管控，剥离低效业务'],
+    ['roe','ROE',fmtP(M.roe),'≥6%',M.roe,'股东回报不足，资本配置效率低','杜邦拆解定位短板，提升盈利/周转/优化杠杆'],
+    ['arDays','应收账款周转天数',fmtD(M.arDays),'≤'+(M.bm.ar+20)+'天',M.arDays,'回款慢，资金占用严重，坏账风险上升','客户信用分级，强化催收，调整账期政策'],
+    ['invDays','存货周转天数',fmtD(M.invDays),'≤'+(M.bm.inv+30)+'天',M.invDays,'存货积压，跌价与减值风险','库存盘点清理呆滞，以销定产'],
+    ['apDays','应付账款周转天数',fmtD(M.apDays),'≤'+(M.bm.ap+30)+'天',M.apDays,'过度占用供应商资金，供应链关系受损','优化付款节奏，维护核心供应商账期信用'],
+    ['netCashRatio','净现比',M.netCashRatio===null?'—':M.netCashRatio.toFixed(2),'≥1',M.netCashRatio,'纸面利润，利润无现金支撑','将经营现金流纳入KPI，利润与回款双线考核']
+  ];
+  const rows=defs.filter(d=> J[d[0]] && (J[d[0]].st==='bad'||J[d[0]].st==='warn'));
+  let html='<tr><th>风险项</th><th>当前值</th><th>安全阈值</th><th>偏离度</th><th>可能影响 / 建议措施</th><th>等级</th></tr>';
+  if(rows.length===0){
+    html+='<tr><td colspan="6" style="text-align:center;color:var(--ok-fg);font-weight:700;padding:24px">🎉 本期未识别异常或需关注指标，财务状况整体健康。</td></tr>';
+  }else{
+    html+=rows.map(d=>{
+      const j=J[d[0]];
+      const devTxt=devText(d[0],d[4],M);
+      return `<tr><td><b>${d[1]}</b></td><td>${d[2]}</td><td>${d[3]}</td><td>${devTxt}</td><td><b>影响：</b>${d[5]}<br><b>建议：</b>${d[6]}</td><td><span class="badge ${j.st}">${stTxt[j.st]}</span></td></tr>`;
+    }).join('');
+  }
+  document.getElementById('riskTable').innerHTML=html;
+}
+function devText(key,v,M){
+  if(v===null||v===undefined) return '—';
+  switch(key){
+    case 'currentRatio': return v<1.5? '低于下限 '+((1.5-v)/1.5*100).toFixed(0)+'%' : '高于上限 '+((v-2)/2*100).toFixed(0)+'%';
+    case 'quickRatio': return '低于下限 '+((0.8-v)/0.8*100).toFixed(0)+'%';
+    case 'debtRatio': return v>0.6? '高于上限 '+((v-0.6)/0.6*100).toFixed(0)+'%' : '低于下限 '+((0.4-v)/0.4*100).toFixed(0)+'%';
+    case 'grossMargin': return '低于行业 '+((M.bm.gross/100-v)/(M.bm.gross/100)*100).toFixed(0)+'%';
+    case 'netMargin': return v<0? '亏损' : '低于安全线 '+((0.05-v)/0.05*100).toFixed(0)+'%';
+    case 'roe': return v<0? '为负' : '低于参考线 '+((0.06-v)/0.06*100).toFixed(0)+'%';
+    case 'arDays': return '超行业均值 '+Math.round(v-M.bm.ar)+'天';
+    case 'invDays': return '超行业均值 '+Math.round(v-M.bm.inv)+'天';
+    case 'apDays': return '超行业均值 '+Math.round(v-M.bm.ap)+'天';
+    case 'netCashRatio': return '低于1（缺口 '+((1-v)*100).toFixed(0)+'%）';
+    default: return '—';
+  }
+}
+
+/* ============================================================
+ * 板块5：导出
+ * ============================================================ */
+function toast(msg){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
+
+function chartImages(){
+  const ids=['chTrend','chCash','chExp'], imgs=[];
+  for(const id of ids){
+    const c=document.getElementById(id);
+    if(c){ try{ imgs.push({id, src:c.toDataURL('image/png')}); }catch(e){} }
+  }
+  return imgs;
+}
+
+function exportWord(){
+  if(!reportReady){ toast('请先生成报告'); return; }
+  const pn=periodNames(DATA.n), cur=pn[pn.length-1];
+  const imgs=chartImages();
+  const getHTML=id=>document.getElementById(id).innerHTML;
+  const imgTag=(id,w)=>{ const im=imgs.find(x=>x.id===id); return im? `<p><img src="${im.src}" width="${w||560}"></p>`:''; };
+  const html=`<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="utf-8"><title>财务分析报告</title>
+  <style>body{font-family:"Microsoft YaHei",sans-serif;font-size:11pt} h1{color:#1a365d;font-size:20pt} h2{color:#1a365d;font-size:15pt;border-bottom:2px solid #1a365d;padding-bottom:4px} h3{color:#1a365d;font-size:12pt} table{border-collapse:collapse;width:100%;font-size:9.5pt} th{background:#1a365d;color:#fff;padding:6px;border:1px solid #ccc} td{padding:6px;border:1px solid #ccc;vertical-align:top} p{line-height:1.7}</style></head><body>
+  <h1>财务分析报告（${cur}）</h1>
+  <p>报告生成时间：${new Date().toLocaleString('zh-CN')}　|　分析期间：${pn.join(' / ')}</p>
+  <h2>一、核心指标驾驶舱</h2>
+  <table><tr><th>指标</th><th>数值</th><th>状态</th><th>偏差说明</th></tr>
+  ${cardDef(METRICS).map(c=>{const j=METRICS.J[c.key];return `<tr><td>${c.name}</td><td>${c.val}</td><td>${stTxt[j?j.st:'na']}${j&&j.excellent?' ⭐优秀':''}</td><td>${c.dev()}</td></tr>`}).join('')}
+  </table>
+  <h2>二、趋势分析图谱</h2>
+  <h3>营收与利润趋势</h3><p>${document.getElementById('cagrText').textContent}</p>${imgTag('chTrend')}
+  <h3>现金流结构</h3>${imgTag('chCash')}
+  <h3>期间费用率结构</h3>${imgTag('chExp')}
+  <h3>指标明细表</h3><table>${getHTML('metricTable')}</table>
+  <h2>三、经营分析与文字解读</h2>${getHTML('analysisWrap')}
+  <h2>四、风险预警清单</h2><table>${getHTML('riskTable')}</table>
+  <p style="color:#718096;font-size:9pt;margin-top:24px">本报告由自动化财务分析报告生成器生成，指标口径与阈值可在工具中调整；重大决策请结合审计数据与业务实际复核。</p>
+  </body></html>`;
+  const blob=new Blob(['\ufeff'+html],{type:'application/msword'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='财务分析报告_'+cur+'.doc';
+  a.click(); URL.revokeObjectURL(a.href);
+  toast('Word报告已导出（含图表静态截图）');
+}
+
+function stripHTML(s){ const d=document.createElement('div'); d.innerHTML=s; return d.textContent||''; }
+
+function copyReport(){
+  if(!reportReady){ toast('请先生成报告'); return; }
+  const pn=periodNames(DATA.n), cur=pn[pn.length-1], M=METRICS;
+  let txt=`【财务分析报告 · ${cur}】\n分析期间：${pn.join(' / ')}\n\n`;
+  txt+='一、核心指标\n';
+  cardDef(M).forEach(c=>{ const j=M.J[c.key]; txt+=`· ${c.name}：${c.val}（${stripHTML(stTxt[j?j.st:'na'])}）${c.dev()}\n`; });
+  txt+='\n二、趋势概览\n'+document.getElementById('cagrText').textContent+'\n';
+  txt+='\n三、经营分析\n';
+  document.querySelectorAll('#analysisWrap .analysis-block').forEach(b=>{
+    txt+='\n■ '+b.querySelector('h3').textContent+'\n';
+    b.querySelectorAll('p,li').forEach(p=>{ txt+=stripHTML(p.outerHTML).replace(/\s+/g,' ').trim()+'\n'; });
+  });
+  txt+='\n四、风险预警清单\n';
+  const rows=document.querySelectorAll('#riskTable tr');
+  rows.forEach((r,i)=>{ const cells=[...r.querySelectorAll(i===0?'th':'td')].map(c=>stripHTML(c.outerHTML).replace(/\s+/g,' ').trim()); txt+=cells.join(' ｜ ')+'\n'; });
+  navigator.clipboard.writeText(txt).then(()=>toast('报告文字已复制，可直接粘贴至邮件')).catch(()=>toast('复制失败，请手动选择复制'));
+}
+
+function copyPPT(){
+  if(!reportReady){ toast('请先生成报告'); return; }
+  const pn=periodNames(DATA.n), cur=pn[pn.length-1], M=METRICS, J=M.J;
+  const badCnt=Object.values(J).filter(j=>j.st==='bad').length, warnCnt=Object.values(J).filter(j=>j.st==='warn').length;
+  const verdict = badCnt>0? '风险状态' : warnCnt>=3? '亚健康状态' : '总体健康';
+  const revC=cagr(M.series.revenue), npC=cagr(M.series.netProfit);
+  const topRisks=[...document.querySelectorAll('#riskTable tr')].slice(1,4).map(r=>{const c=[...r.querySelectorAll('td')];return c.length? c[0].textContent.trim()+'（'+c[1].textContent.trim()+'）':'';}).filter(Boolean);
+  const sugg=buildSuggestions(M,J).slice(0,3);
+  const txt=`【管理层汇报PPT大纲 · 财务分析报告 ${cur}】
+
+第1页｜封面
+标题：${cur}财务分析报告
+副标题：核心结论——公司整体财务状况：${verdict}
+
+第2页｜核心指标一览（配图：6卡驾驶舱截图）
+流动比率 ${fmtN(M.currentRatio)} ｜ 资产负债率 ${fmtP(M.debtRatio)} ｜ 毛利率 ${fmtP(M.grossMargin)}
+净利率 ${fmtP(M.netMargin)} ｜ ROE ${fmtP(M.roe)} ｜ 应收周转天数 ${fmtD(M.arDays)}
+关键信息：${badCnt}项异常 / ${warnCnt}项需关注
+
+第3页｜营收与利润趋势（配图：趋势折线图）
+${document.getElementById('cagrText').textContent||'单期数据'}
+${npC!==null&&revC!==null&&npC<revC? '核心提示：增收不增利，利润增速落后于收入增速':'核心提示：关注收入与利润的匹配性'}
+
+第4页｜现金流质量（配图：现金流结构图）
+经营净现金流 ${fmtN(latest(DATA.cf.cfo))}，净现比 ${M.netCashRatio===null?'—':M.netCashRatio.toFixed(2)}
+核心结论：${M.netCashRatio!==null&&M.netCashRatio>=1?'利润有现金流支撑，造血能力健康':'利润现金含量不足，需推动利润向现金转化'}
+
+第5页｜杜邦分析（配图：杜邦拆解图）
+ROE ${fmtP(M.roe)} = 净利率 ${fmtP(M.netMargin)} × 总资产周转率 ${M.assetTurnover===null?'—':M.assetTurnover.toFixed(2)} × 权益乘数 ${M.equityMultiplier===null?'—':M.equityMultiplier.toFixed(2)}
+${document.querySelector('#dupontTree .dp-note')? document.querySelector('#dupontTree .dp-note').textContent.replace('📌 ',''):''}
+
+第6页｜风险预警（配图：风险清单表格）
+${topRisks.length? topRisks.map((r,i)=>(i+1)+'. '+r).join('\n') : '本期无异常/需关注指标'}
+
+第7页｜管理建议
+${sugg.map((s,i)=>(i+1)+'. '+s).join('\n')}
+
+第8页｜结束页
+下一步：明确各项整改责任人与时间表，下期经营分析会复盘进展。`;
+  navigator.clipboard.writeText(txt).then(()=>toast('PPT大纲已复制（7-8页结构）')).catch(()=>toast('复制失败'));
+}
+
+/* ============================================================
+ * 示例数据 & 交互
+ * ============================================================ */
+function loadSample(){
+  document.getElementById('txt-bs').value=SAMPLE.bs;
+  document.getElementById('txt-is').value=SAMPLE.is;
+  document.getElementById('txt-cf').value=SAMPLE.cf;
+  generate();
+}
+
+document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById('pane-'+b.dataset.tab).classList.add('active');
+}));
+
+['txt-bs','txt-is','txt-cf','bmGross','bmAR','bmInv','bmAP','pn0','pn1','pn2'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', autoRegen);
+});
+</script>
+</body>
+</html>
